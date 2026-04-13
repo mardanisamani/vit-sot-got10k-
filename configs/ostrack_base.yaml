@@ -1,0 +1,59 @@
+# OSTrack-Base Configuration (ViT-Base backbone)
+# ================================================
+# Standard configuration matching the OSTrack paper.
+# Expected AO on GOT-10k val: ~71-73 (state-of-the-art range)
+# GPU memory: ~40GB for batch_size=16, or use batch_size=4 on 24GB
+
+model_name: ostrack_base
+
+# Input sizes
+template_size: 128
+search_size: 256
+
+# Backbone: ViT-Base
+backbone:
+  pretrained_model: vit_base_patch16_224
+  pretrained: true
+  patch_size: 16
+  embed_dim: 768
+  depth: 12
+  num_heads: 12
+  mlp_ratio: 4.0
+  drop_path_rate: 0.1
+
+# Tracking Head
+head:
+  type: corner
+  hidden_dim: 256
+  num_layers: 3
+
+# Loss Weights
+loss:
+  l1_weight: 5.0
+  giou_weight: 2.0
+  focal_weight: 1.0
+
+# Data
+data:
+  root: data/got10k
+  batch_size: 16            # Reduce to 4-8 if OOM on single GPU
+  num_workers: 8
+  max_frame_gap: 100
+
+# Optimizer (AdamW)
+optimizer:
+  lr: 4.0e-4
+  backbone_lr_factor: 0.1
+  weight_decay: 1.0e-4
+
+# LR Scheduler
+scheduler:
+  warmup_epochs: 2
+
+# Training
+training:
+  num_epochs: 300
+  save_interval: 10
+  grad_clip: 0.1
+
+use_amp: true

@@ -1,0 +1,60 @@
+# OSTrack-Small Configuration (ViT-Small backbone)
+# ===================================================
+# Faster to train, good for experiments and ablations.
+# Expected AO on GOT-10k val: ~65-68 (vs ViT-Base ~71-73)
+# GPU memory: ~12GB for batch_size=16 on single GPU
+
+model_name: ostrack_small
+
+# Input sizes
+template_size: 128   # Template crop: 128×128 → 8×8 = 64 patches
+search_size: 256     # Search crop: 256×256 → 16×16 = 256 patches
+
+# Backbone: ViT-Small
+backbone:
+  pretrained_model: vit_small_patch16_224
+  pretrained: true          # Initialize from ImageNet-pretrained weights
+  patch_size: 16
+  embed_dim: 384
+  depth: 12
+  num_heads: 6
+  mlp_ratio: 4.0
+  drop_path_rate: 0.1       # Stochastic depth for regularization
+
+# Tracking Head
+head:
+  type: corner              # corner or mlp
+  hidden_dim: 128
+  num_layers: 3
+
+# Loss Weights
+loss:
+  l1_weight: 5.0            # L1 coordinate loss
+  giou_weight: 2.0          # Generalized IoU loss
+  focal_weight: 1.0         # Focal loss on score map
+
+# Data
+data:
+  root: data/got10k
+  batch_size: 16
+  num_workers: 4
+  max_frame_gap: 100        # Max temporal gap between template and search frames
+
+# Optimizer (AdamW)
+optimizer:
+  lr: 4.0e-4                # Base learning rate (head)
+  backbone_lr_factor: 0.1   # Backbone LR = lr * factor (fine-tune slowly)
+  weight_decay: 1.0e-4
+
+# LR Scheduler (Cosine with warmup)
+scheduler:
+  warmup_epochs: 2
+
+# Training
+training:
+  num_epochs: 300           # Standard GOT-10k training epochs
+  save_interval: 10         # Save checkpoint every N epochs
+  grad_clip: 0.1            # Gradient clipping norm
+
+# Mixed Precision (speeds up training by ~2x on modern GPUs)
+use_amp: true
