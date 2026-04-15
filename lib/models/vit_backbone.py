@@ -133,7 +133,7 @@ class VisionTransformerTrack(nn.Module):
             self.blocks = nn.Sequential(*[
                 Block(
                     dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio,
-                    qkv_bias=qkv_bias, drop=drop_rate, attn_drop=attn_drop_rate,
+                    qkv_bias=qkv_bias, proj_drop=drop_rate, attn_drop=attn_drop_rate,
                     drop_path=dpr[i], norm_layer=norm_layer
                 )
                 for i in range(depth)
