@@ -13,6 +13,10 @@ build/
 .venv/
 venv/
 env/
+ViT_env/
+
+# Dataset
+scripts/full_data/
 
 # Jupyter
 .ipynb_checkpoints/

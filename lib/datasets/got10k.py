@@ -378,3 +378,131 @@ def build_got10k_loader(cfg: dict):
     )
 
     return train_loader, val_loader
+
+
+# ---------------------------------------------------------------------------
+# Test / Visualization
+# ---------------------------------------------------------------------------
+
+def test_dataset_visualization(data_root: str, split: str = "train", num_frames: int = 5):
+    """
+    Visualize frames with ground truth bounding boxes from a GOT-10k sequence.
+
+    Args:
+        data_root:  Path to GOT-10k root (e.g. 'data/got10k')
+        split:      'train', 'val', or 'test'
+        num_frames: How many frames to display
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+
+    split_dir = Path(data_root) / split
+    seq_dirs = sorted(d for d in split_dir.iterdir() if d.is_dir() and (d / "groundtruth.txt").exists())
+
+    if not seq_dirs:
+        print(f"No sequences found in {split_dir}")
+        return
+
+    # Pick the first sequence
+    seq = GOT10kSequence(str(seq_dirs[0]))
+    print(f"Sequence: {seq.name}  |  Total frames: {len(seq)}")
+
+    num_frames = min(num_frames, len(seq))
+    fig, axes = plt.subplots(1, num_frames, figsize=(4 * num_frames, 4))
+    if num_frames == 1:
+        axes = [axes]
+
+    for i, ax in enumerate(axes):
+        frame = seq.get_frame(i)
+        box = seq.get_box_xyxy(i)   # [x1, y1, x2, y2]
+
+        ax.imshow(frame)
+        x1, y1, x2, y2 = box
+        rect = patches.Rectangle(
+            (x1, y1), x2 - x1, y2 - y1,
+            linewidth=2, edgecolor="lime", facecolor="none"
+        )
+        ax.add_patch(rect)
+        ax.set_title(f"Frame {i}", fontsize=10)
+        ax.axis("off")
+
+    fig.suptitle(f"GOT-10k  |  {seq.name}  |  Green = Ground Truth", fontsize=12)
+    plt.tight_layout()
+    plt.show()
+    print("Done.")
+
+
+def test_training_pairs(data_root: str, num_samples: int = 4):
+    """
+    Visualize template + search crop pairs as seen during training.
+
+    For each sample shows:
+      - Left:  Template crop (what the object looks like in frame 1)
+      - Right: Search crop with GT box (where to find it in a later frame)
+
+    Args:
+        data_root:   Path to GOT-10k root (e.g. 'data/got10k')
+        num_samples: Number of training pairs to display
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+
+    dataset = GOT10kDataset(
+        root=data_root,
+        split="train",
+        template_size=128,
+        search_size=256,
+    )
+
+    fig, axes = plt.subplots(num_samples, 2, figsize=(8, 4 * num_samples))
+    if num_samples == 1:
+        axes = [axes]
+
+    for row, ax_pair in enumerate(axes):
+        sample = dataset[row]
+
+        # Denormalize tensors back to uint8 for display
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+        std  = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+
+        def to_img(t):
+            img = (t * std + mean).clamp(0, 1).permute(1, 2, 0).numpy()
+            return img
+
+        template_img = to_img(sample["template"])   # (128, 128, 3)
+        search_img   = to_img(sample["search"])     # (256, 256, 3)
+        gt_box       = sample["gt_boxes"].numpy()   # [x1, y1, x2, y2] normalized
+
+        # --- Template ---
+        ax_pair[0].imshow(template_img)
+        ax_pair[0].set_title(f"Sample {row} — Template (128×128)", fontsize=9)
+        ax_pair[0].axis("off")
+
+        # --- Search with GT box ---
+        ax_pair[1].imshow(search_img)
+        H, W = search_img.shape[:2]
+        x1, y1, x2, y2 = gt_box * [W, H, W, H]
+        rect = patches.Rectangle(
+            (x1, y1), x2 - x1, y2 - y1,
+            linewidth=2, edgecolor="lime", facecolor="none", label="GT box"
+        )
+        ax_pair[1].add_patch(rect)
+        ax_pair[1].set_title(f"Sample {row} — Search (256×256) | seq: {sample['seq_name']}", fontsize=9)
+        ax_pair[1].axis("off")
+
+    fig.suptitle("Training Pairs  |  Green = Ground Truth Box", fontsize=13)
+    plt.tight_layout()
+    plt.show()
+    print("Done.")
+
+
+if __name__ == "__main__":
+    import sys
+    data_root   = sys.argv[1] if len(sys.argv) > 1 else "data/got10k"
+    mode        = sys.argv[2] if len(sys.argv) > 2 else "pairs"
+    n           = int(sys.argv[3]) if len(sys.argv) > 3 else 4
+
+    if mode == "frames":
+        test_dataset_visualization(data_root, split="train", num_frames=n)
+    else:
+        test_training_pairs(data_root, num_samples=n)
